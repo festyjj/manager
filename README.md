@@ -25,4 +25,9 @@
 6. ## 项目打包
    ```bash
    pnpm run build:prod
+
+
+
+   reame
    ```
+
