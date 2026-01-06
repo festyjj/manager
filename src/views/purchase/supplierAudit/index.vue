@@ -68,7 +68,7 @@
           <span>{{ parseTime(scope.row.auditTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="审核状态" align="center" prop="auditStatus" :formatter="auditStatusFormat"  width="200" />
+      <el-table-column label="审核状态" align="center" prop="auditStatus" :formatter="auditStatusFormat"  width="2000" />
       <el-table-column label="状态" align="center" prop="status"  width="200" >
         <template #default="scope">
           <el-switch v-model="scope.row.status" active-value="1" inactive-value="0"
@@ -303,14 +303,18 @@
           "valid_status",
           "apply_status",
       )
-      this.typeOptions = scm_supplier_type;
-      this.levelOptions = scm_supplier_level;
-      this.auditUserOptions = query_user;
-      this.statusOptions = valid_status;
-      this.applyStatusOptions = apply_status;
-      this.auditStatusOptions = audit_status;
-
-
+  this.applyStatusOptions = [
+  { dictValue: "0", dictLabel: "未提交" },
+  { dictValue: "1", dictLabel: "待审核" },
+  { dictValue: "2", dictLabel: "已审核" }
+];
+// 审核状态保持原有字典不变
+      this.auditStatusOptions = [
+  { dictValue: "1", dictLabel: "通过" },
+  { dictValue: "0", dictLabel: "驳回" }
+];
+// 审核状态保持原有字典不变
+     
       this.getQueryData("query_user").then(res => {
         this.applyUserOptions = res.data;
       });
