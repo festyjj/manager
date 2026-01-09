@@ -68,7 +68,7 @@
           <span>{{ parseTime(scope.row.auditTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="审核状态" align="center" prop="auditStatus" :formatter="auditStatusFormat"  width="2000" />
+      <el-table-column label="审核状态" align="center" prop="auditStatus" :formatter="auditStatusFormat"  width="200" />
       <el-table-column label="状态" align="center" prop="status"  width="200" >
         <template #default="scope">
           <el-switch v-model="scope.row.status" active-value="1" inactive-value="0"
