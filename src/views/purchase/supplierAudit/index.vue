@@ -303,21 +303,18 @@
           "valid_status",
           "apply_status",
       )
-  this.applyStatusOptions = [
-  { dictValue: "0", dictLabel: "未提交" },
-  { dictValue: "1", dictLabel: "待审核" },
-  { dictValue: "2", dictLabel: "已审核" }
-];
-// 审核状态保持原有字典不变
-      this.auditStatusOptions = [
-  { dictValue: "1", dictLabel: "通过" },
-  { dictValue: "0", dictLabel: "驳回" }
-];
-// 审核状态保持原有字典不变
-     
+      this.getDicts("apply_status").then(response => {
+        this.applyStatusOptions = response.data;
+      });  
+
       this.getQueryData("query_user").then(res => {
         this.applyUserOptions = res.data;
       });
+
+      this.getDicts("audit_status").then(response => {
+        this.auditStatusOptions = response.data;
+      });
+
       this.getQueryData("query_user").then(res => {
         this.auditUserOptions = res.data;
       });

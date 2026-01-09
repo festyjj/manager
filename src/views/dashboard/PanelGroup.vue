@@ -48,7 +48,7 @@
           <div class="card-panel-text">
             订单
           </div>
-<!--          <count-to :start-val="0" :end-val="13600" :duration="3600" class="card-panel-num" />-->
+         <count-to :start-val="0" :end-val="13600" :duration="3600" class="card-panel-num" />
         </div>
       </div>
     </el-col>
@@ -56,11 +56,11 @@
 </template>
 
 <script>
-// import CountTo from 'vue-count-to'
+import CountTo from 'vue-count-to'
 
 export default {
   components: {
-    // CountTo
+    CountTo
   },
   methods: {
     handleSetLineChartData(type) {
