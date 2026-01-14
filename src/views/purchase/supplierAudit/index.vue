@@ -310,9 +310,14 @@
       this.applyStatusOptions = apply_status;
       this.auditStatusOptions = audit_status;
 
-
+      this.getDicts("apply_status").then(response => {
+        this.applyStatusOptions = response.data;
+      });
       this.getQueryData("query_user").then(res => {
         this.applyUserOptions = res.data;
+      });
+       this.getDicts("audit_status").then(response => {
+        this.auditStatusOptions = response.data;
       });
       this.getQueryData("query_user").then(res => {
         this.auditUserOptions = res.data;

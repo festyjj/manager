@@ -68,6 +68,9 @@ importers:
       vue-router:
         specifier: 4.2.5
         version: 4.2.5(vue@3.3.9)
+      vue3-count-to:
+        specifier: ^1.1.2
+        version: 1.1.2(vue@3.3.9)
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: 4.5.0
@@ -679,6 +682,9 @@ packages:
   copy-descriptor@0.1.1:
     resolution: {integrity: sha512-XgZ0pFcakEUlbwQEVNg3+QAis1FyTL3Qel9FYy8pSkQqoG3PNoT0bOCQtOXcOkur21r2Eq2kI+IE+gsmAEVlYw==}
     engines: {node: '>=0.10.0'}
+
+  core-js@3.47.0:
+    resolution: {integrity: sha512-c3Q2VVkGAUyupsjRnaNX6u8Dq2vAdzm9iuPj5FW0fRxzlxgq9Q39MDq10IvmQSpLgHQNyQzQmOo6bgGHmH3NNg==}
 
   cors@2.8.5:
     resolution: {integrity: sha512-KIHbLJqu73RGr/hnbrO9uBeixNGuvSQjul/jdFvS/KFSIH1hWVd1ng7zOHx+YrEfInLG7q4n6GHQ9cDtxv/P6g==}
@@ -1899,6 +1905,9 @@ packages:
       terser:
         optional: true
 
+  vue-count-to@1.0.13:
+    resolution: {integrity: sha512-6R4OVBVNtQTlcbXu6SJ8ENR35M2/CdWt3Jmv57jOUM+1ojiFmjVGvZPH8DfHpMDSA+ITs+EW5V6qthADxeyYOQ==}
+
   vue-cropper@1.1.1:
     resolution: {integrity: sha512-WsqKMpaBf9Osi1LQlE/5AKdD0nHWOy1asLXocaG8NomOWO07jiZi968+/PbMmnD0QbPJOumDQaGuGa13qys85A==}
 
@@ -1917,6 +1926,11 @@ packages:
     resolution: {integrity: sha512-DIUpKcyg4+PTQKfFPX88UWhlagBEBEfJ5A8XDXRJLUnZOvcpMF8o/dnL90vpVkGaPbjvXazV/rC1qBKrZlFugw==}
     peerDependencies:
       vue: ^3.2.0
+
+  vue3-count-to@1.1.2:
+    resolution: {integrity: sha512-C5AvlcGfyM4XvFqPDkni94rqGd5K/+RB+B4xv/1NQx3RrdC+GvXPFzeXW5hWL/jh8ehWLm4LITyK0eMKf4iJbg==}
+    peerDependencies:
+      vue: '>= 3 < 4'
 
   vue@3.3.9:
     resolution: {integrity: sha512-sy5sLCTR8m6tvUk1/ijri3Yqzgpdsmxgj6n6yl7GXXCXqVbmW2RCXe9atE4cEI6Iv7L89v5f35fZRRr5dChP9w==}
@@ -2467,6 +2481,8 @@ snapshots:
   confbox@0.2.2: {}
 
   copy-descriptor@0.1.1: {}
+
+  core-js@3.47.0: {}
 
   cors@2.8.5:
     dependencies:
@@ -3953,6 +3969,8 @@ snapshots:
       fsevents: 2.3.3
       sass: 1.69.5
 
+  vue-count-to@1.0.13: {}
+
   vue-cropper@1.1.1: {}
 
   vue-demi@0.14.10(vue@3.3.9):
@@ -3963,6 +3981,12 @@ snapshots:
     dependencies:
       '@vue/devtools-api': 6.6.4
       vue: 3.3.9
+
+  vue3-count-to@1.1.2(vue@3.3.9):
+    dependencies:
+      core-js: 3.47.0
+      vue: 3.3.9
+      vue-count-to: 1.0.13
 
   vue@3.3.9:
     dependencies:
