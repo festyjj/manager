@@ -140,19 +140,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { getEmissionOverall } from "@/api/carbonReport/monitorChartReport";
 import { saleCustomer, saleStat, achieveRate, saleOverall } from "@/api/carbonReport/saleReport";
 import {listEquipmentPowerReport} from "@/api/carbonReport/equipmentPowerReport";
-import {listProductCheck} from "@/api/mesCheck/productCheck";
+import {productPowerReportOverall} from "@/api/carbonReport/productPowerReport";
+import {listMaterialInventoryDetailReport} from "@/api/wmsReport/materialInventoryDetailReport";
 
 // ========== 1. 基础数据定义 ==========
 // 当前时间
 const currentDateTime = ref('')
 // 销售额/碳排放数据
-
 const salesData = ref({
     yearTotal: 0,
     monthTotal: 0,
@@ -166,7 +166,7 @@ const carbonData = ref({
 const fetchSalesData = async () => {
     try {
         const response = await saleOverall({ productYear: "2026" });
-        const { todayTotal = 0, monthTotal = 0, yearTotal = 0 } = response.data;
+        const { todayTotal, monthTotal, yearTotal } = response.data;
         salesData.value = { todayTotal, monthTotal, yearTotal };
     } catch (error) {
         console.error('获取销售额数据失败：', error);
@@ -178,7 +178,7 @@ const fetchSalesData = async () => {
 const fetchCarbonData = async () => {
     try {
         const response = await getEmissionOverall({ productYear: "2026" });
-        const { todayCarbonEmission = 0, monthCarbonEmission = 0, totalCarbonEmission = 0 } = response.data;
+        const { todayCarbonEmission, monthCarbonEmission, totalCarbonEmission } = response.data;
         carbonData.value = {
             todayTotal: todayCarbonEmission,
             monthTotal: monthCarbonEmission,
@@ -203,54 +203,93 @@ const fetchAllData = async () => {
     ]);
 };
 // 库存预警表格数据
-const inventoryTableData = ref([
-    { id: 1, materialName: '钢材A', warehouseName: '一号仓库', stockNum: 500, status: '正常' },
-    { id: 2, materialName: '铝材B', warehouseName: '二号仓库', stockNum: 80, status: '不足' },
-    { id: 3, materialName: '塑料C', warehouseName: '三号仓库', stockNum: 1200, status: '溢出' },
-    { id: 4, materialName: '橡胶D', warehouseName: '四号仓库', stockNum: 300, status: '正常' },
-    { id: 5, materialName: '玻璃E', warehouseName: '五号仓库', stockNum: 90, status: '不足' },
-    { id: 6, materialName: '铜材F', warehouseName: '六号仓库', stockNum: 1500, status: '溢出' },
-])
+const inventoryTableData = ref([])
+// 生产统计表格数据（保留原有定义）
+const productionTableData = ref([])
+// 加载状态
+const inventoryLoading = ref(false)
+
+// 获取库存状态数据（核心方法）
+const getInventoryData = async (query = {}) => {
+  inventoryLoading.value = true
+  try {
+    // 调用后端真实库存接口
+    const res = await listMaterialInventoryDetailReport(query)
+    
+    // 处理接口返回数据（核心：适配真实字段）
+    if (res?.code === 200 && Array.isArray(res?.rows)) {
+      inventoryTableData.value = res.rows.map((item, index) => {
+        // 计算库存状态（接口inventoryStatusName为null，需根据库存/上下限判断）
+        let status = '正常'
+        const currentInventory = item.inventory
+        const minInventory = item.minInventory
+        const maxInventory = item.maxInventory
+
+        if (currentInventory < minInventory) {
+          status = '不足' // 低于下限 → 库存不足
+        } else if (currentInventory > maxInventory && maxInventory !== 0) {
+          status = '溢出' // 高于上限 → 库存溢出
+        }
+
+        return {
+          id: index + 1, // 表格序号
+          materialName: item.materialName, // 物料名称
+          warehouseName: item.whName, // 仓库名称（接口是whName）
+          stockNum: currentInventory, // 当前库存（接口是inventory）
+          status: status // 计算后的库存状态
+        }
+      })
+    } else {
+      inventoryTableData.value = []
+      ElMessage.warning('暂无库存数据')
+    }
+  } catch (error) {
+    console.error('获取库存数据失败：', error)
+    inventoryTableData.value = []
+    ElMessage.error('库存数据加载失败，请稍后重试')
+  } finally {
+    inventoryLoading.value = false
+  }
+}
 
 // 生产统计表格数据
 const getProductCheckData = async () => {
   try {
     loading.value = true
-    // 调用后端接口，可传入查询参数（如无参数传空对象）
-    const response = await listProductCheck({
-      // 这里可以添加接口需要的查询参数，比如：
-      // productName: '',
-      // model: '',
-      // spec: '',
-      // qualifiedRate: ''
+    // 调用能耗/碳排放接口（可传查询参数，如productYear: "2022"）
+    const powerRes = await productPowerReportOverall({
+      // 可选查询参数：按时间/物料筛选
+       productYear: "2026"
     })
-    // 假设后端返回的数据格式是 { code: 200, data: [...] }，根据实际返回格式调整
-    if (response.code === 200) {
-      // 将后端数据赋值给表格数据
-      productionTableData.value = response.data
-      // 如果后端返回的字段和表格需要的字段不一致，可在这里做映射
-      // 示例：
-      // productionTableData.value = response.data.map(item => ({
-      //   id: item.id,
-      //   productName: item.productName,
-      //   model: item.model,
-      //   spec: item.spec,
-      //   unit: item.unit || '件', // 补充默认值
-      //   stock: item.stock || 0,
-      //   produced: item.produced || 0,
-      //   toProduce: item.toProduce || 0,
-      //   carbonEmission: item.carbonEmission || 0
-      // }))
+
+    if (powerRes.code === 200 && Array.isArray(powerRes.rows)) {
+      // 直接从新接口数据组装表格（含待生产+碳排放）
+      productionTableData.value = powerRes.rows.map(item => ({
+        id: item.planId || item.materialId, // 用计划ID/物料ID作为表格主键
+        productName: item.materialName, // 产品名称
+        model: item.materialModel, // 型号
+        spec: item.materialSpecification, // 规格
+        unit: item.materialUnit, // 单位
+        stock: item.productQuantity, // 已生产数量（库存）
+        produced: item.productQuantity, // 已生产（可替换为检验数，若需关联检验接口）
+        // 核心：计算待生产数量（计划数-已生产数，确保非负）
+        toProduce: Math.max(item.requireQuantity - item.productQuantity, 0),
+        carbonEmission: item.carbonEmission, // 单台碳排放（直接取值）
+        totalCarbonEmission: item.totalCarbonEmission // 可选：总碳排放
+      }))
+      console.log("整合后表格数据：", productionTableData.value)
+    } else {
+      productionTableData.value = []
+      ElMessage.warning('暂无能耗统计数据')
     }
   } catch (error) {
-    console.error('获取产品生产统计数据失败：', error)
-    // 可添加错误提示，比如使用 ElMessage
-    // ElMessage.error('数据加载失败，请稍后重试')
+    console.error('获取能耗/生产数据失败：', error)
+    productionTableData.value = []
+    ElMessage.error('数据加载失败')
   } finally {
     loading.value = false
   }
 }
-
 
 // 碳排放排行榜数据
 const carbonRankData = ref([])
@@ -265,21 +304,54 @@ const REFRESH_INTERVAL = 5000
 const getCarbonRankData = async () => {
   loading.value = true
   try {
-    // 调用后端接口，参数可根据需求补充（比如年份、工厂等）
     const res = await listEquipmentPowerReport({ 
-      limit: 8, // 只取TOP8
-      sort: 'totalCarbonEmission', // 按碳排放量排序
-      order: 'desc' // 降序排列
+      limit: 8, 
+      sort: 'totalCarbonEmission', 
+      order: 'desc' 
     })
     
-    // 处理接口返回数据（根据实际后端返回格式调整）
-    if (res?.code === 200 && Array.isArray(res?.data)) {
-      // 确保数据按碳排放量降序（双重保障，避免后端排序异常）
-      const sortedData = res.data.sort((a, b) => b.totalCarbonEmission - a.totalCarbonEmission)
-      // 截取前8条
-      carbonRankData.value = sortedData.slice(0, 8)
+    if (res?.code === 200 && Array.isArray(res?.rows)) {
+      // 步骤1：先对相同设备名称的记录去重+合并数据
+      const uniqueDataMap = new Map() // 用Map去重，key=设备名称，value=合并后的数据
+      
+      res.rows.forEach(item => {
+        // 确定设备名称的唯一标识（优先用productLineName，无则用processName）
+        const deviceKey = item.productLineName || item.processName
+        
+        if (uniqueDataMap.has(deviceKey)) {
+          // 已有该设备，合并数据（生产数量累加，碳排放累加）
+          const existingItem = uniqueDataMap.get(deviceKey)
+          uniqueDataMap.set(deviceKey, {
+            ...existingItem,
+            productQuantity: existingItem.productQuantity + item.productQuantity,
+            totalCarbonEmission: existingItem.totalCarbonEmission + item.totalCarbonEmission
+          })
+        } else {
+          // 无该设备，直接存入Map
+          uniqueDataMap.set(deviceKey, {
+            ...item,
+            productQuantity: item.productQuantity,
+            totalCarbonEmission: item.totalCarbonEmission
+          })
+        }
+      })
+
+      // 步骤2：将Map转为数组，按总碳排放降序排序
+      const uniqueDataArray = Array.from(uniqueDataMap.values()).sort(
+        (a, b) => b.totalCarbonEmission - a.totalCarbonEmission
+      )
+
+      // 步骤3：截取前8条，映射表格字段
+      carbonRankData.value = uniqueDataArray.slice(0, 8).map((item, index) => ({
+        id: index + 1,
+        equipment: item.productLineName || item.processName,
+        productionNum: item.productQuantity,
+        carbonEmission: item.totalCarbonEmission
+      }))
+
     } else {
       carbonRankData.value = []
+      ElMessage.warning('暂无碳排放排名数据')
     }
   } catch (error) {
     console.error('获取设备碳排放排名失败：', error)
@@ -303,8 +375,6 @@ const salesRankChart = ref(null)
 // 表格容器引用（用于滚动）
 const inventoryTableRef = ref(null)
 const productionTableRef = ref(null)
-
-
 
 // 存储ECharts实例 + 定时器/事件引用（用于销毁）
 let gaugeInstances = {}
@@ -384,7 +454,7 @@ const initECharts = (domRef, key, option) => {
 // ========== 5. 各图表初始化方法 ==========
 // 初始化仪表盘
 const initGaugeCharts = async () => {
-    let electricValue = 10;
+    let electricValue = 0;
     let waterValue = 0;
     let carbonValue = 0;
     try {
@@ -392,9 +462,9 @@ const initGaugeCharts = async () => {
         console.log("仪表盘接口返回：", res);
         if (res?.code === 200 && res?.data) {
             const Data = res.data["2026"];
-            electricValue = Data.totalPowerConsume ?? 0;
-            waterValue = Data.totalWaterConsume ?? 0;
-            carbonValue = Data.totalCarbonSave ?? 0;
+            electricValue = Data.totalPowerConsume;
+            waterValue = Data.totalWaterConsume;
+            carbonValue = Data.totalCarbonSave;
         }
     } catch (err) {
         console.error("获取仪表盘数据失败：", err);
@@ -498,10 +568,10 @@ const initEnergyPie = async () => {
         const res = await getEmissionOverall({ productYear: "2026" });
         if (res?.code === 200 && res?.data) {
             const Data = res.data["2026"]
-            officeWastepower = Data.totalOfficePowerConsume ?? 0;
-            officeUseWater = Data.totalOfficeWaterConsume ?? 0;
-            productUseWater = Data.totalWaterConsume ?? 0;
-            productWastepower = Data.totalOfficePowerConsume ?? 0;
+            officeWastepower = Data.totalOfficePowerConsume;
+            officeUseWater = Data.totalOfficeWaterConsume;
+            productUseWater = Data.totalWaterConsume;
+            productWastepower = Data.totalOfficePowerConsume;
         }
     } catch (err) {
         console.error("获取能耗占比数据失败：", err);
@@ -514,6 +584,7 @@ const initEnergyPie = async () => {
         { name: '生产耗电量', value: productWastepower },
     ]
     const totalEnergy = energyData.reduce((sum, item) => sum + item.value, 0)
+    console.log("总计数：",totalEnergy)
 
     initECharts(energyPie, 'energyPie', {
         tooltip: {
@@ -547,7 +618,7 @@ const initEnergyPie = async () => {
                 style: {
                     text: `总能耗\n${totalEnergy}`,
                     fontSize: 14,
-                    textAlign: 'center'
+                    textAlign: 'inside'
                 },
                 transform: {
                     translateX: -30,
@@ -562,9 +633,9 @@ const initEnergyPie = async () => {
 const initSalesCompleteChart = async () => {
     try {
         const response = await achieveRate({ productYear: "2026" });
-        const { category = [], barData = [], lineData = [], rateData = [] } = response.data ;
+        const { category, barData, lineData, rateData } = response.data ;
 
-        // 兜底计算完成率
+        // 兜底计算完成率（已移除兜底值）
         const finalRateData = rateData;
         initECharts(salesCompleteChart, 'salesComplete', {
             tooltip: {
@@ -629,7 +700,7 @@ const initSalesCompleteChart = async () => {
 const initSalesTrendChart = async () => {
     try {
         const response = await saleStat({ productYear: "2026" });
-        const { dateList = [], numList = [] } = response.data || {};
+        const { dateList, numList } = response.data || {};
 
         initECharts(salesTrendChart, 'salesTrend', {
             tooltip: {
@@ -675,8 +746,8 @@ const initSalesTrendChart = async () => {
 
 // 初始化销售排名柱状图
 const initSalesRankChart = async () => {
-    let companyNames = ['暂无数据'];
-    let salesValues = [0];
+    let companyNames = [];
+    let salesValues = [];
 
     try {
         const res = await saleCustomer({ limit: 8, year: 2026 });
@@ -686,8 +757,8 @@ const initSalesRankChart = async () => {
             companyNames = rankData.map(item => item.name);
             salesValues = rankData.map(item => item.value);
         } else if (res?.code === 200 && res.data.length === 0) {
-            companyNames = ['暂无销售数据'];
-            salesValues = [0];
+            companyNames = [];
+            salesValues = [];
         }
     } catch (err) {
         console.error('获取销售排名失败：', err);
@@ -711,7 +782,6 @@ const initSalesRankChart = async () => {
             name: '销售额(万元)',
         },
         yAxis: {
-            
             type: 'category',
             data: companyNames,
             axisLabel: {
@@ -739,32 +809,44 @@ const initSalesRankChart = async () => {
     })
 }
 
-// ========== 6. 数据请求方法 ==========
-
-
 // ========== 7. 表格滚动初始化 ==========
 const initTableScroll = () => {
-    // 库存预警表格滚动
-    if (inventoryTableRef.value) {
-        const tableContainer = inventoryTableRef.value;
-        inventoryScrollTimer = setInterval(() => {
-            tableContainer.scrollTop += 1;
-            if (tableContainer.scrollTop >= tableContainer.scrollHeight - tableContainer.clientHeight) {
-                tableContainer.scrollTop = 0;
-            }
-        }, 30);
-    }
+    // 清除旧定时器
+    if (inventoryScrollTimer) clearInterval(inventoryScrollTimer);
+    if (productionScrollTimer) clearInterval(productionScrollTimer);
 
-    // 生产统计表格滚动
-    if (productionTableRef.value) {
-        const tableContainer = productionTableRef.value;
-        productionScrollTimer = setInterval(() => {
-            tableContainer.scrollTop += 1;
-            if (tableContainer.scrollTop >= tableContainer.scrollHeight - tableContainer.clientHeight) {
-                tableContainer.scrollTop = 0;
+    // 等待DOM和数据完全渲染
+    nextTick(() => {
+        // 库存预警表格滚动
+        if (inventoryTableRef.value) {
+            const tableContainer = inventoryTableRef.value;
+            // 有滚动内容才启动
+            if (tableContainer.scrollHeight > tableContainer.clientHeight) {
+                inventoryScrollTimer = setInterval(() => {
+                    tableContainer.scrollTop += 1;
+                    // 滚动到底部重置
+                    if (tableContainer.scrollTop >= tableContainer.scrollHeight - tableContainer.clientHeight - 10) {
+                        tableContainer.scrollTop = 0;
+                    }
+                }, 30);
             }
-        }, 30);
-    }
+        }
+
+        // 生产统计表格滚动
+        if (productionTableRef.value) {
+            const tableContainer = productionTableRef.value;
+            // 有滚动内容才启动
+            if (tableContainer.scrollHeight > tableContainer.clientHeight) {
+                productionScrollTimer = setInterval(() => {
+                    tableContainer.scrollTop += 1;
+                    // 滚动到底部重置
+                    if (tableContainer.scrollTop >= tableContainer.scrollHeight - tableContainer.clientHeight - 10) {
+                        tableContainer.scrollTop = 0;
+                    }
+                }, 30);
+            }
+        }
+    });
 }
 
 // ========== 8. 生命周期函数 ==========
@@ -772,18 +854,20 @@ onMounted(async () => {
     // 初始化时间
     updateDateTime();
     timeTimer = setInterval(updateDateTime, 1000);
-     getCarbonRankData();
-      getProductCheckData();
-  // 启动实时刷新定时器
-  refreshTimer = setInterval(getCarbonRankData, REFRESH_INTERVAL)
+    
+    // 先加载所有数据
+    await Promise.all([
+        getCarbonRankData(),
+        getProductCheckData(),
+        getInventoryData(),
+        fetchAllData()
+    ]);
 
-    // 等待DOM完全渲染后再初始化图表（加微延迟）
-    await nextTick();
-    // 加载所有数据和图表
-    await fetchAllData();
-
-    // 初始化表格滚动
+    // 数据加载完成后初始化滚动
     initTableScroll();
+
+    // 启动实时刷新定时器
+    refreshTimer = setInterval(getCarbonRankData, REFRESH_INTERVAL);
 
     // 监听窗口大小变化，重新调整图表
     const resizeObserver = new ResizeObserver(() => {
@@ -792,13 +876,29 @@ onMounted(async () => {
     });
     resizeObserver.observe(document.querySelector('.dashboard-layout'));
 
-    // 监听数据变化
+    // 监听数据变化，重新初始化滚动
+    watch([inventoryTableData, productionTableData], () => {
+        initTableScroll();
+    }, { deep: true });
+
+    // 监听销售额/碳排放数据变化
     watch([salesData, carbonData], () => {
         ElMessage.success('数据已更新');
         if (chartInstances.salesComplete) {
             chartInstances.salesComplete.resize();
         }
     }, { deep: true });
+})
+
+// 组件卸载时清除所有定时器和事件
+onUnmounted(() => {
+    if (timeTimer) clearInterval(timeTimer);
+    if (refreshTimer) clearInterval(refreshTimer);
+    if (inventoryScrollTimer) clearInterval(inventoryScrollTimer);
+    if (productionScrollTimer) clearInterval(productionScrollTimer);
+    resizeHandlers.forEach(handler => window.removeEventListener('resize', handler));
+    Object.values(gaugeInstances).forEach(instance => instance?.dispose());
+    Object.values(chartInstances).forEach(instance => instance?.dispose());
 })
 </script>
 
@@ -816,7 +916,7 @@ onMounted(async () => {
 }
 
 .carbon-dashboard {
-  width: 100vw;
+  width: 100%; /* 修复：替换100vw，避免横向溢出 */
   height: 100vh;
   padding: 20px;
   box-sizing: border-box;
@@ -833,12 +933,11 @@ onMounted(async () => {
   color: #333;
 }
 
-/* ========== 核心修改1：布局容器 ========== */
 .dashboard-layout {
   display: flex;
   gap: 20px;
   height: calc(100% - 60px);
-  /* align-items: stretch; 新增：强制三列等高，避免某一列拉伸 */
+  align-items: stretch; /* 修复：取消注释，强制三列等高 */
 }
 
 .layout-left,
@@ -848,40 +947,35 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-width: 320px; /* 新增：限制左侧最小宽度 */
+  min-width: 320px; /* 修复：三列统一最小宽度 */
 }
-/* ========== 核心修改2：卡片容器 ========== */
+
 .card {
   background: #fff;
   border-radius: 8px;
   padding: 10px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  /* 修改：把 height:100% 换成 flex:1，让卡片自动平分列的高度 */
-  height:100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* 新增：防止卡片内内容溢出 */
+  overflow: hidden;
 }
 
 .card-title {
   font-size: 16px;
   font-weight: bold;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   color: #333;
   border-bottom: 1px solid #eee;
-  /* padding-bottom: 8px; */
-  /* 新增：固定标题高度，不参与flex分配 */
   flex-shrink: 0;
 }
 
-/* ========== 核心修改3：仪表盘容器 ========== */
 .gauge-container {
   display: flex;
   justify-content: space-around;
-  flex: 1; 
-  /* 让仪表盘容器占满卡片剩余高度 */
-  min-height: 150px; /* 新增：最小高度，避免挤压到看不见 */
-  align-items: center; /* 垂直居中仪表盘 */
+  flex: 1;
+  min-height: 150px;
+  align-items: center;
   padding: 10px 0;
 }
 
@@ -890,14 +984,13 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1; /* 新增：三个仪表盘平分宽度 */
+  flex: 1;
   padding: 0 5px;
 }
 
-
 .gauge-chart {
   width: 100%;
-  max-width: 120px; /* 容器最大宽度 */
+  max-width: 120px;
   height: 100%;
   min-height: 120px;
 }
@@ -906,18 +999,18 @@ onMounted(async () => {
   margin-top: 10px;
   font-size: 14px;
   color: #666;
- flex-shrink: 0; /* 标签不被挤压 */
+  flex-shrink: 0;
 } 
 
-/* ========== 核心修改4：图表容器（能耗占比/销售图表等） ========== */
+/* 核心修复：补充width:100% */
 .chart-container {
-  flex: 1; /* 占满卡片剩余高度 */
-  min-height: 200px; /* 最小高度保证图表能显示 */
-  height: 100%; /* 适配父容器高度 */
+  flex: 1;
+  min-height: 200px;
+  width: 100%; /* 新增 */
+  height: 100%;
   overflow: hidden;
 }
 
-/* ========== 核心修改5：数据总览 ========== */
 .data-overview {
   flex: 1;
   display: flex;
@@ -930,7 +1023,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  flex-shrink: 0; /* 顶部统计不被挤压 */
+  flex-shrink: 0;
 }
 
 .overview-item {
@@ -953,7 +1046,7 @@ onMounted(async () => {
 }
 
 .overview-bottom {
-  flex: 1; /* 排行榜占满剩余高度 */
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -967,29 +1060,24 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-/* ========== 核心修改6：滚动表格容器 ========== */
 .scroll-table-container {
-  flex: 1; /* 占满卡片剩余高度 */
-  overflow-y: auto; /* 只显示垂直滚动条 */
-  /* 修改：去掉固定max-height，换成自适应父容器 */
+  flex: 1;
+  overflow-y: auto;
   max-height: none;
-  /* 可选：增加内边距，避免表格贴边 */
   padding: 0 2px;
 }
 
-/* ========== 表格样式 ========== */
 :deep(.el-table) {
   --el-table-text-color: #333;
   --el-table-header-text-color: #666;
   --el-table-row-hover-bg-color: #f8f9fa;
-  height: 100%; /* 表格占满容器 */
+  height: 100%;
 }
 
 :deep(.el-table th) {
   background-color: #f8f9fa !important;
 }
 
-/* 可选：隐藏滚动条（美化） */
 .scroll-table-container::-webkit-scrollbar {
   width: 4px;
 }

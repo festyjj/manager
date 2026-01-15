@@ -9,6 +9,7 @@ export function listMaterialInventoryDetailReport(query) {
   })
 }
 
+
 // 查询库存明细报表详细
 export function getMaterialInventoryDetailReport(whId) {
   return request({

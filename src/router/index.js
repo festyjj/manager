@@ -92,8 +92,25 @@ export const constantRoutes = [
         meta: { title: '个人中心', icon: 'user' }
       }
     ]
+  },
+
+   {
+    path: '',
+    component: Layout,
+    redirect: '/Tender',
+    children: [
+      {
+        path: '/Tender',
+        component: () => import('@/views/Tender'),
+        name: 'Tender',
+        meta: { title: '参与投标', icon: 'dashboard', affix: true }
+      }
+    ]
   }
+
+
 ]
+
 
 // 动态路由，基于用户权限动态去加载
 export const dynamicRoutes = [
