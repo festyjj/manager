@@ -59,6 +59,7 @@ function createCompression(env) {
 
 // vite/plugins/setup-extend.js
 import setupExtend from "file:///D:/code/manager/node_modules/.pnpm/unplugin-vue-setup-extend-plus@1.0.0/node_modules/unplugin-vue-setup-extend-plus/dist/vite.js";
+import { build } from "vite";
 function createSetupExtend() {
   return setupExtend({});
 }
@@ -125,6 +126,9 @@ var vite_config_default = defineConfig(({ mode, command }) => {
           }
         ]
       }
+    },
+    build:{
+       
     }
   };
 });
